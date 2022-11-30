@@ -1,0 +1,113 @@
+.app {
+    height: 100%;
+    width: 100%;
+}
+
+.login{
+    width: 100%;
+    height: 100%;
+}
+
+.loginBox{
+    padding: 30px;
+    width: 300px;
+}
+
+.game{
+    width: 100%;
+    height: 100%;
+    padding: 100px;
+    background: #eee;
+    position: relative;
+}
+
+.player1,.player2,.draw{
+    font-size: 20px;
+    position: absolute;
+    left: 100px;
+}
+
+.player1 h3,.player2 h3{
+    text-transform: capitalize;
+    margin-bottom: 15px;
+}
+
+.player1{
+    top: 120px;
+}
+
+.player2{
+    top: 220px;
+}
+
+.draw{
+    top: 320px;
+}
+
+.resetButton{
+    position: absolute;
+    left: 100px;
+    top: 420px;
+}
+
+.table{
+    width: 500px;
+    height: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tableItem{
+    width: 33.33%;
+    height: 33.33%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 0;
+    font-size: 100px;
+    border:2px solid #3f51b5;
+    transition: .3s all;
+    cursor: pointer;
+    outline: none;
+}
+
+.tableItem:hover{
+    background: rgba(225, 223, 223, 0.5);
+}
+
+.tableItem:disabled{
+    cursor:no-drop;
+}
+
+.tableItem:nth-child(1),
+.tableItem:nth-child(4),
+.tableItem:nth-child(7){
+    border-left: none;
+}
+
+.tableItem:nth-child(1),
+.tableItem:nth-child(2),
+.tableItem:nth-child(3){
+    border-top: none;
+}
+
+.tableItem:nth-child(3),
+.tableItem:nth-child(6),
+.tableItem:nth-child(9){
+    border-right: none;
+}
+
+.tableItem:nth-child(7),
+.tableItem:nth-child(8),
+.tableItem:nth-child(9){
+    border-bottom: none;
+}
+
+.startButton{
+    width: 200px;
+    height: 60px;
+}
+
+
