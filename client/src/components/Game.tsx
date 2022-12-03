@@ -7,7 +7,7 @@ import s from './style.module.css';
 import {Button, Grid} from '@material-ui/core';
 import {Close, TripOrigin} from '@material-ui/icons';
 import {ColumnType, wsApi} from '../api/wsApi';
-import {connectThunk, GameInitialStateType, onMessage, stopThunk} from '../store/reducers/gameReducer';
+import {GameInitialStateType, onMessage} from '../store/reducers/gameReducer';
 import {UserType} from '../api/api';
 
 export const Game: React.FC = () => {
@@ -19,7 +19,11 @@ export const Game: React.FC = () => {
     const disabledButton = current !== user.sign;
     const game = useSelector<RootState, GameInitialStateType>(state => state.game);
     const {player_1, player_2} = game;
-    const dispatch = useAppDispatch()
+    const dispatch = useAppDispatch();
+
+    const connect = (ws: WebSocket, name: string, id: number) => {
+        wsApi.connect(ws, name, id);
+    }
     const createWebSocket = () => {
         setWebSocket(wsApi.createSocket());
     }
@@ -43,21 +47,18 @@ export const Game: React.FC = () => {
             }
         }
     }
-    const stopGame = (win: number | null) => {
+    const reset = () => {
         if (webSocket) {
             if (player_1 && player_2) {
-                dispatch(stopThunk({
-                    ws: webSocket,
-                    v: {
-                        p1: player_1,
-                        p2: player_2,
-                        gameid,
-                        win
-                    }
-                }));
+                wsApi.reset(webSocket, {
+                    gameid,
+                    p1: player_1.id,
+                    p2: player_2.id
+                })
             }
         }
     }
+
     useEffect(() => {
         webSocket?.removeEventListener('close', closeHandler);
         const ws = wsApi.createSocket();
@@ -65,17 +66,19 @@ export const Game: React.FC = () => {
         ws.addEventListener('close', closeHandler);
         return ws.removeEventListener('close', closeHandler);
     }, []);
+
     useEffect(() => {
         if (webSocket) {
             webSocket.addEventListener('open', () => {
-                dispatch(connectThunk({ws: webSocket, name: user.name, id: user.id}))
+                connect(webSocket, user.name, user.id);
             });
             webSocket.addEventListener('message', (msg) => {
-                dispatch(onMessage({d: msg.data, id: user.id}))
+                dispatch(onMessage({ws: webSocket, d: msg.data, id: user.id}))
             });
         }
 
-    }, [webSocket])
+    }, [webSocket]);
+
     if (!isAuth) return <Navigate to="/login"/>;
     if (!location.pathname.replace('/game', '') && user.gameid) {
         return <Navigate to={`/game/${user.gameid}`}/>
@@ -83,7 +86,7 @@ export const Game: React.FC = () => {
     if (!user.gameid) return <Lobby startCallBack={startGame}/>
 
     return <Board changeValueCallBack={changeValue} disabledButton={disabledButton} game={game} user={user}
-                  stopGame={stopGame}/>
+                  reset={reset}/>
 }
 
 const Lobby: React.FC<{ startCallBack: () => void }> = ({startCallBack}) => {
@@ -104,21 +107,19 @@ const Board: React.FC<{
     disabledButton: boolean,
     game: GameInitialStateType,
     user: UserType,
-    stopGame: (win: number | null) => void
+    reset: () => void
 }> = (
-    {changeValueCallBack, disabledButton, game, user, stopGame}
+    {changeValueCallBack, disabledButton, game, user,reset}
 ) => {
     const {cols} = game.game;
     const changeValue = (name: string) => changeValueCallBack(name);
-    const stop = useSelector<RootState,boolean>(state => state.game.stop);
-    useEffect(() => {
-        const c = checkWin(cols);
-        if(c === null || c === 0 || c === 1){
-            stopGame(c);
-        }
-    }, [cols]);
+    const stop = useSelector<RootState, boolean>(state => state.game.stop);
     return (
         <Grid container className={s.game} alignItems="center" justifyContent="center">
+            {stop && <div className={s.resetButton}>
+                <Button onClick={reset} variant="contained" color="secondary">Reset</Button>
+            </div>}
+
             <div className={s.player1}>
                 <h3>{game.player_1?.name === user.name ? 'You' : game.player_1?.name}</h3>
                 <div>Won: {game.game.win1}</div>
@@ -130,8 +131,6 @@ const Board: React.FC<{
             <div className={s.draw}>
                 <div>Draw: {game.game.draw}</div>
             </div>
-            {stop && <Button className={s.resetButton} onClick={() => {
-            }} variant="contained" color="secondary">Reset</Button>}
             <div className={s.table}>
                 {
                     cols.map(c => <BoardItem key={c.id} c={c} changeValue={changeValue}
@@ -146,7 +145,7 @@ const BoardItem: React.FC<BoardItemPropsType> = (
     {c, changeValue, disabledButton}
 ) => {
     const onClickHandler = () => changeValue(c.name);
-    const stop = useSelector<RootState,boolean>(state => state.game.stop);
+    const stop = useSelector<RootState, boolean>(state => state.game.stop);
     return <button
         id={`${c.id}`}
         onClick={onClickHandler}
@@ -157,25 +156,5 @@ const BoardItem: React.FC<BoardItemPropsType> = (
     </button>
 }
 
-const checkWin = (cols: ColumnType[]) => {
-    const c = cols.map(c => c.value === 0 ? {...c, value: 'o'} : {...c, value: 'x'});
-    const win = [
-        c[0].value + c[1].value + c[2].value,
-        c[3].value + c[4].value + c[5].value,
-        c[6].value + c[7].value + c[8].value,
-        c[0].value + c[3].value + c[6].value,
-        c[1].value + c[5].value + c[7].value,
-        c[2].value + c[5].value + c[8].value,
-        c[0].value + c[4].value + c[8].value,
-        c[2].value + c[4].value + c[6].value
-    ].find(s => {
-        if (s === 'ooo') return s;
-        if (s === 'xxx') return s;
-    });
-
-    if (win === 'xxx') return 1;
-    if (win === 'ooo') return 0;
-    if(!cols.find(c => c.value === null)) return null;
-};
 
 type BoardItemPropsType = { c: ColumnType, changeValue: (name: string) => void, disabledButton: boolean }

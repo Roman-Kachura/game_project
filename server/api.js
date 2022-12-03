@@ -8,6 +8,19 @@ const conn = mysql.createConnection({
 });
 
 class Api {
+    users = []
+
+    addUsersToLobby(id) {
+        const u = this.users.find(v => v === id);
+        if (!u) {
+            this.users.push(id);
+        }
+    }
+
+    deleteUsersFromLobby(id) {
+        this.users = this.users.filter(i => i !== id);
+    }
+
     getStartPage(req, res) {
         res.json({message: 'Server works!'})
     }
@@ -15,7 +28,6 @@ class Api {
     addUser(req, res) {
         const query = `insert into game_users(name) values ('${req.body.name}');`;
         conn.query(query, (e, r) => {
-            console.log(e);
             return e ? res.status(501).json(e) : res.json({id: r.insertId, name: req.body.name});
         })
 
@@ -60,17 +72,17 @@ class Api {
 
     start(msg, ws, aWss) {
         const id = JSON.parse(msg).id;
-        const query = `select * from game_users where id!=${id}`;
-        conn.query(query, (e, r) => {
-            if (e) return this.sendError(501, e, ws);
-            if (r.length === 0) return this.sendError(200, `There aren't users!`, ws);
-            const u = r.find(f => f.gameid === null);
-            if (!u) return this.sendError(200, `There aren't free users!`, ws);
+        this.addUsersToLobby(id);
+
+        if (this.users.length > 1) {
+            const p2 = this.users.find(u => u !== id);
+            this.deleteUsersFromLobby(id);
+            this.deleteUsersFromLobby(p2);
             const gameID = `rk${(+new Date).toString(20)}`;
-            const query1 = `update game_users set gameid='${gameID}' where id in (${id},${u.id});`;
+            const query1 = `update game_users set gameid='${gameID}' where id in (${id},${p2});`;
             conn.query(query1, (e, r) => {
                 if (e) return this.sendError(501, e, ws);
-                const query2 = `select * from game_users where id in (${id},${u.id});`;
+                const query2 = `select * from game_users where id in (${id},${p2});`;
                 conn.query(query2, (e, r) => {
                     if (e) return this.sendError(501, e, ws);
                     const player_1 = {...r[0], sign: 0};
@@ -98,14 +110,13 @@ class Api {
                     });
                 });
             })
-        });
+        }
     };
 
     changeValue(msg, ws, aWss) {
         const {gameid, name, sign, p1, p2} = JSON.parse(msg);
         conn.query(`select * from game_col where id='${gameid}';`, (e, r) => {
             if (e) return this.sendError(501, e, ws);
-            console.log(r[0])
             if (r[0].current !== sign) {
                 return this.sendError(402, 'Please, wait for your step!', ws);
             } else {
@@ -135,12 +146,13 @@ class Api {
         const query = `select * from game_col where id='${gameid}';`;
         conn.query(query, (e, r) => {
             if (e) return this.sendError(501, e, ws);
-            let query1 = `update game_users set draw='${r[0].draw + 1}' where id='${gameid}';`;
-            if (win === p1.sign) query1 = `update game_users set win1='${r[0].win1 + 1}' where id='${gameid}';`;
-            if (win === p2.sign) query1 = `update game_users set win1='${r[0].win1 + 1}' where id='${gameid}';`;
+            const draw = win === null ? r[0].draw + 1 : r[0].draw;
+            const win1 = win === p1.sign ? r[0].win1 + 1 : r[0].win1;
+            const win2 = win === p2.sign ? r[0].win2 + 1 : r[0].win2;
+            let query1 = `update game_col set draw=${draw}, win1=${win1}, win2=${win2} where id='${gameid}';`;
             conn.query(query1, (e, r) => {
                 if (e) return this.sendError(501, e, ws);
-                conn.query(query,(e,r)=>{
+                conn.query(query, (e, r) => {
                     if (e) return this.sendError(501, e, ws);
                     const result = {
                         game: this.getGameValues(r[0]),
@@ -154,6 +166,28 @@ class Api {
                 });
             });
         })
+    }
+
+    reset(msg, ws, aWss) {
+        const {gameid, p1, p2} = JSON.parse(msg);
+        const query = `update game_col set c1=null, c2=null, c3=null, c4=null, c5=null, c6=null, c7=null, c8=null, c9=null where id='${gameid}';`;
+        conn.query(query, (e, r) => {
+            if (e) return this.sendError(501, e, ws);
+            const query1 = `select * from game_col where id='${gameid}';`;
+            conn.query(query1, (e, r) => {
+                if (e) return this.sendError(501, e, ws);
+                const result = {
+                    game: this.getGameValues(r[0]),
+                    method: 'reset'
+                }
+
+                aWss.clients.forEach(c => {
+                    if (c.id === p1 || c.id === p2) {
+                        c.send(JSON.stringify(result));
+                    }
+                });
+            });
+        });
     }
 }
 

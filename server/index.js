@@ -29,6 +29,9 @@ app.ws('/game', (ws, req) => {
             case 'stop':
                 api.stop(msg, ws, aWss);
                 break;
+            case 'reset':
+                api.reset(msg, ws, aWss)
+                break;
         }
     });
 })

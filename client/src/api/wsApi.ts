@@ -13,17 +13,21 @@ export const wsApi = {
     start(ws: WebSocket, id: number) {
         ws.send(JSON.stringify({id, method: 'start'}));
     },
-    changeValue(ws: WebSocket,v:ChangeValueObjectType){
-        ws.send(JSON.stringify({...v,method:'change'}));
+    changeValue(ws: WebSocket, v: ChangeValueObjectType) {
+        ws.send(JSON.stringify({...v, method: 'change'}));
     },
-    stop(ws: WebSocket,v:stopValuesType){
-        ws.send(JSON.stringify({...v,method:'stop'}));
+    reset(ws: WebSocket, v: ResetValueType) {
+        ws.send(JSON.stringify({...v, method: 'reset'}));
+
+    },
+    stop(ws: WebSocket, v: StopValuesType) {
+        ws.send(JSON.stringify({...v, method: 'stop'}));
     }
 }
 
 export type GameValueType = {
     id: string
-    current:number
+    current: number
     win1: number
     win2: number
     draw: number
@@ -32,17 +36,22 @@ export type GameValueType = {
 
 export type ColumnType = { id: number, name: string, value: number | null };
 export type ChangeValueObjectType = {
-    gameid:string
-    name:string
-    sign:number
-    p1:number
-    p2:number
+    gameid: string
+    name: string
+    sign: number
+    p1: number
+    p2: number
 };
-export type stopValuesType = {
-    gameid:string
+export type StopValuesType = {
+    gameid: string
     win: number | null
-    p1:UserType
-    p2:UserType
+    p1: UserType
+    p2: UserType
+}
+export type ResetValueType = {
+    gameid: string
+    p1: number
+    p2: number
 }
 
 export type GamePlayerType = UserType & {

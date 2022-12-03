@@ -1,7 +1,8 @@
 import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
-import {GameValueType, stopValuesType, wsApi} from '../../api/wsApi';
+import {GameValueType, wsApi} from '../../api/wsApi';
 import {UserType} from '../../api/api';
 import {setProfile} from './profileReducer';
+import {checkWin} from '../../feature/checkWin';
 
 const initialState: GameInitialStateType = {
     game: {} as GameValueType,
@@ -10,20 +11,7 @@ const initialState: GameInitialStateType = {
     stop: false
 }
 
-export const connectThunk = createAsyncThunk('connect-game', async (arg: { ws: WebSocket, name: string, id: number }, thunkAPI) => {
-    wsApi.connect(arg.ws, arg.name, arg.id);
-});
-
-export const startThunk = createAsyncThunk('start-game', async (arg: { ws: WebSocket, id: number }, thunkAPI) => {
-    wsApi.start(arg.ws, arg.id);
-});
-
-export const stopThunk = createAsyncThunk('stop-game', async (arg: { ws: WebSocket, v: stopValuesType }, thunkAPI) => {
-    thunkAPI.dispatch(setStop(true));
-    wsApi.stop(arg.ws, arg.v);
-});
-
-export const onMessage = createAsyncThunk('start-game', async (arg: { d: string, id: number }, thunkAPI) => {
+export const onMessage = createAsyncThunk('start-game', async (arg: { ws: WebSocket, d: string, id: number }, thunkAPI) => {
     const data = JSON.parse(arg.d);
     const {method} = data;
     switch (method) {
@@ -34,11 +22,29 @@ export const onMessage = createAsyncThunk('start-game', async (arg: { d: string,
             if (arg.id === data.player_2.id) thunkAPI.dispatch(setProfile(data.player_2));
             break;
         case 'change':
+            const check = checkWin(data.game.cols);
             thunkAPI.dispatch(setGame(data));
+            if (check === 0 || check === 1 || check === null) {
+                thunkAPI.dispatch(setStop(true));
+                const state: any = thunkAPI.getState();
+                if (state.game.game.current === state.profile.user.sign) {
+                    wsApi.stop(arg.ws, {
+                        gameid: state.game.game.id,
+                        win: check,
+                        p1: state.game.player_1,
+                        p2: state.game.player_2,
+                    });
+                }
+            }
             break;
         case 'stop':
             thunkAPI.dispatch(setGame(data));
-            setStop(true);
+            thunkAPI.dispatch(setStop(true));
+            break;
+        case 'reset':
+            thunkAPI.dispatch(setGame(data));
+            thunkAPI.dispatch(setStop(false));
+            break;
     }
 });
 
@@ -54,13 +60,16 @@ const gameSlice = createSlice({
             state.player_1 = action.payload.player_1
             state.player_2 = action.payload.player_2
         },
+        clearGame(state) {
+            state = initialState;
+        },
         setStop(state, action) {
             state.stop = action.payload;
         }
     }
 });
 
-export const {setGame, setPlayers, setStop} = gameSlice.actions;
+export const {setGame, setPlayers, setStop, clearGame} = gameSlice.actions;
 export default gameSlice.reducer;
 
 export type GameInitialStateType = {

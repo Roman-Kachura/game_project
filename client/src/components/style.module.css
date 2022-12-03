@@ -46,8 +46,7 @@
 
 .resetButton{
     position: absolute;
-    left: 100px;
-    top: 420px;
+    right: 100px;
 }
 
 .table{
